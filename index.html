@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>【情書】v0.3</title>
+    <title>【情書】v0.4</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
@@ -611,7 +611,7 @@
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-crown"></i> 【情書】v0.3</h1>
+            <h1><i class="fas fa-crown"></i> 【情書】v0.4</h1>
             <div class="subtitle">與2-5位朋友同樂的卡牌遊戲，小心刺客，守護公主！</div>
         </header>
         
@@ -727,9 +727,6 @@
                     </button>
                     <button id="playCard" class="action-btn" disabled>
                         <i class="fas fa-play-circle"></i> 打出選中的牌
-                    </button>
-                    <button id="viewDiscard" class="action-btn">
-                        <i class="fas fa-trash-alt"></i> 查看棄牌堆
                     </button>
                 </div>
                 
@@ -864,7 +861,6 @@
             document.getElementById("drawCard").addEventListener("click", drawCard);
             document.getElementById("playCard").addEventListener("click", playCard);
             document.getElementById("endTurn").addEventListener("click", endTurn);
-            document.getElementById("viewDiscard").addEventListener("click", viewDiscard);
             document.getElementById("clearLog").addEventListener("click", clearLog);
             document.getElementById("rollDice").addEventListener("click", rollDice);
             
@@ -914,30 +910,27 @@
                 logMessage(`正在加入房間: ${roomId}`, "system");
             }
             
-            // 初始化PeerJS
-            // 修改 playerId 產生方式
-if (isHost) {
-    playerId = roomId + "_host";           // ← 房主固定用這個 ID
-} else {
-    playerId = "guest_" + Math.random().toString(36).substring(2, 10);
-    // 或乾脆用 peer 預設的隨機 ID： playerId = null; 讓 Peer() 自己產生
-}
-            // 替換您現有的 peer = new Peer(...) 部分
-peer = new Peer(playerId, {
-    host: '0.peerjs.com', // PeerJS 的公共信令伺服器
-    port: 443,
-    path: '/',
-    secure: true,
-    config: {
-        'iceServers': [
-            { urls: 'stun:stun.l.google.com:19302' }, // 免費的公共 STUN 伺服器
-            { urls: 'stun:global.stun.twilio.com:3478' }
-            // 如果需要更強的連線能力，可考慮加入付費的 TURN 伺服器
-            // { urls: 'turn:your.turn.server:3478', username: 'username', credential: 'password' }
-        ]
-    },
-    debug: 3 // 可設定為 0 以減少控制台日誌
-});
+            // 初始化PeerJS - 關鍵修正：統一ID命名方式
+            if (isHost) {
+                playerId = roomId + "_host";  // 房主使用固定ID
+            } else {
+                // 客戶端使用更統一的ID命名方式，避免重複
+                playerId = "guest_" + roomId + "_" + Math.random().toString(36).substring(2, 8);
+            }
+            
+            peer = new Peer(playerId, {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' }
+                    ]
+                },
+                debug: 3
+            });
             
             peer.on('open', function(id) {
                 logMessage(`連線成功! 你的ID: ${id}`, "system");
@@ -945,19 +938,8 @@ peer = new Peer(playerId, {
                 if (isHost) {
                     logMessage(`你是房主，等待其他玩家加入...`, "system");
                     document.getElementById("startGame").disabled = false;
-                } else {
-                    // 嘗試連接到主機
-                    conn = peer.connect(roomId + "_host");
-                    setupConnection(conn);
-                }
-                
-                document.getElementById("joinRoom").disabled = true;
-                document.getElementById("leaveRoom").disabled = false;
-                document.getElementById("playerName").disabled = true;
-                document.getElementById("roomId").disabled = true;
-                
-                // 將自己加入玩家列表
-                if (isHost) {
+                    
+                    // 房主將自己加入玩家列表
                     gameState.players.push({
                         id: playerId,
                         name: playerName,
@@ -968,7 +950,16 @@ peer = new Peer(playerId, {
                         isEliminated: false
                     });
                     updatePlayersDisplay();
+                } else {
+                    // 客戶端嘗試連接到主機 - 修正連線目標
+                    conn = peer.connect(roomId + "_host");
+                    setupConnection(conn);
                 }
+                
+                document.getElementById("joinRoom").disabled = true;
+                document.getElementById("leaveRoom").disabled = false;
+                document.getElementById("playerName").disabled = true;
+                document.getElementById("roomId").disabled = true;
             });
             
             peer.on('connection', function(connection) {
@@ -984,7 +975,7 @@ peer = new Peer(playerId, {
             });
         }
         
-        // 設置連線
+        // 設置連線 - 修正連線處理邏輯
         function setupConnection(connection) {
             conn = connection;
             
@@ -992,7 +983,16 @@ peer = new Peer(playerId, {
                 logMessage(`已連線到 ${connection.peer}`, "system");
                 
                 if (isHost) {
+                    // 檢查是否已有相同玩家ID的連線，避免重複
+                    const existingConnectionIndex = hostConnections.findIndex(c => c.peer === connection.peer);
+                    if (existingConnectionIndex > -1) {
+                        logMessage(`玩家 ${connection.peer} 已存在，關閉舊連線`, "system");
+                        hostConnections[existingConnectionIndex].close();
+                        hostConnections.splice(existingConnectionIndex, 1);
+                    }
+                    
                     hostConnections.push(connection);
+                    logMessage(`已新增連線: ${connection.peer}，當前連線數: ${hostConnections.length}`, "system");
                     
                     // 發送歡迎訊息和當前遊戲狀態
                     connection.send({
@@ -1002,21 +1002,8 @@ peer = new Peer(playerId, {
                         isHost: false
                     });
                     
-                    // 廣播新玩家加入
-                    broadcast({
-                        type: "PLAYER_JOINED",
-                        player: {
-                            id: connection.peer,
-                            name: connection.peer.split("_")[0],
-                            avatar: "😊",
-                            isHost: false,
-                            hand: [],
-                            isProtected: false,
-                            isEliminated: false
-                        }
-                    });
                 } else {
-                    // 發送加入訊息
+                    // 客戶端發送加入訊息 - 包含完整的玩家資訊
                     connection.send({
                         type: "JOIN",
                         playerId: playerId,
@@ -1034,16 +1021,23 @@ peer = new Peer(playerId, {
                 logMessage(`連線關閉: ${connection.peer}`, "system");
                 if (isHost) {
                     // 從連線列表中移除
-                    const index = hostConnections.indexOf(connection);
-                    if (index > -1) hostConnections.splice(index, 1);
+                    const index = hostConnections.findIndex(c => c.peer === connection.peer);
+                    if (index > -1) {
+                        hostConnections.splice(index, 1);
+                        logMessage(`已移除連線: ${connection.peer}，剩餘連線數: ${hostConnections.length}`, "system");
+                    }
                     
-                    // 從玩家列表中移除
+                    // 從玩家列表中移除，但保留玩家資料（允許重連）
                     const playerIndex = gameState.players.findIndex(p => p.id === connection.peer);
                     if (playerIndex > -1) {
                         const playerName = gameState.players[playerIndex].name;
-                        gameState.players.splice(playerIndex, 1);
-                        logMessage(`${playerName} 已離開房間`, "system");
-                        broadcast({ type: "PLAYER_LEFT", playerId: connection.peer });
+                        // 不從列表中移除，僅標記為離線
+                        logMessage(`${playerName} 已離線`, "system");
+                        broadcast({ 
+                            type: "PLAYER_LEFT", 
+                            playerId: connection.peer,
+                            playerName: playerName
+                        });
                     }
                 }
             });
@@ -1054,39 +1048,67 @@ peer = new Peer(playerId, {
             });
         }
         
-        // 處理訊息
+        // 處理訊息 - 修正JOIN處理邏輯
         function handleMessage(data, connection) {
             console.log("收到訊息:", data);
             
             switch(data.type) {
                 case "JOIN":
                     if (isHost) {
-                        // 將新玩家加入遊戲
-                        const newPlayer = {
-                            id: data.playerId,
-                            name: data.name,
-                            avatar: data.avatar,
-                            isHost: false,
-                            hand: [],
-                            isProtected: false,
-                            isEliminated: false
-                        };
+                        // 檢查是否已有相同玩家
+                        const existingPlayerIndex = gameState.players.findIndex(p => p.id === data.playerId);
                         
-                        gameState.players.push(newPlayer);
-                        logMessage(`${data.name} 加入了遊戲`, "system");
-                        
-                        // 通知所有玩家
-                        broadcast({
-                            type: "PLAYER_JOINED",
-                            player: newPlayer
-                        });
-                        
-                        // 回傳確認訊息
-                        connection.send({
-                            type: "JOIN_ACCEPTED",
-                            playerId: data.playerId,
-                            gameState: gameState
-                        });
+                        if (existingPlayerIndex > -1) {
+                            // 玩家已存在，更新連線
+                            logMessage(`${data.name} 重新連線`, "system");
+                            gameState.players[existingPlayerIndex].name = data.name;
+                            gameState.players[existingPlayerIndex].avatar = data.avatar;
+                            
+                            // 發送更新後的遊戲狀態
+                            connection.send({
+                                type: "JOIN_ACCEPTED",
+                                playerId: data.playerId,
+                                gameState: gameState
+                            });
+                            
+                            // 廣播玩家更新
+                            broadcast({
+                                type: "PLAYER_UPDATE",
+                                playerId: data.playerId,
+                                name: data.name,
+                                avatar: data.avatar
+                            });
+                        } else {
+                            // 新玩家加入
+                            const newPlayer = {
+                                id: data.playerId,
+                                name: data.name,
+                                avatar: data.avatar,
+                                isHost: false,
+                                hand: [],
+                                isProtected: false,
+                                isEliminated: false
+                            };
+                            
+                            gameState.players.push(newPlayer);
+                            logMessage(`${data.name} 加入了遊戲`, "system");
+                            
+                            // 回傳確認訊息
+                            connection.send({
+                                type: "JOIN_ACCEPTED",
+                                playerId: data.playerId,
+                                gameState: gameState
+                            });
+                            
+                            // 通知所有玩家
+                            broadcast({
+                                type: "PLAYER_JOINED",
+                                player: newPlayer
+                            });
+                            
+                            // 更新房主顯示
+                            updatePlayersDisplay();
+                        }
                     }
                     break;
                     
@@ -1120,9 +1142,13 @@ peer = new Peer(playerId, {
                     
                 case "PLAYER_JOINED":
                     if (!isHost) {
-                        gameState.players.push(data.player);
-                        updatePlayersDisplay();
-                        logMessage(`${data.player.name} 加入了遊戲`, "system");
+                        // 檢查是否已有相同玩家
+                        const existingPlayerIndex = gameState.players.findIndex(p => p.id === data.player.id);
+                        if (existingPlayerIndex === -1) {
+                            gameState.players.push(data.player);
+                            updatePlayersDisplay();
+                            logMessage(`${data.player.name} 加入了遊戲`, "system");
+                        }
                     }
                     break;
                     
@@ -1130,10 +1156,7 @@ peer = new Peer(playerId, {
                     if (!isHost) {
                         const playerIndex = gameState.players.findIndex(p => p.id === data.playerId);
                         if (playerIndex > -1) {
-                            const playerName = gameState.players[playerIndex].name;
-                            gameState.players.splice(playerIndex, 1);
-                            updatePlayersDisplay();
-                            logMessage(`${playerName} 已離開房間`, "system");
+                            logMessage(`${data.playerName} 已離線`, "system");
                         }
                     }
                     break;
@@ -1160,6 +1183,21 @@ peer = new Peer(playerId, {
                         `;
                     }
                     break;
+                    
+                case "WELCOME":
+                    if (!isHost) {
+                        logMessage("已成功連線到房主", "system");
+                        // 不需要在這裡更新gameState，等待JOIN_ACCEPTED
+                    }
+                    break;
+                    
+                case "JOIN_ACCEPTED":
+                    if (!isHost) {
+                        gameState = data.gameState;
+                        updatePlayersDisplay();
+                        logMessage("已成功加入房間", "system");
+                    }
+                    break;
             }
         }
         
@@ -1168,7 +1206,11 @@ peer = new Peer(playerId, {
             if (isHost) {
                 // 發送給所有連線的玩家
                 hostConnections.forEach(conn => {
-                    conn.send(message);
+                    try {
+                        conn.send(message);
+                    } catch (e) {
+                        console.error("廣播失敗:", e);
+                    }
                 });
                 
                 // 如果是遊戲狀態更新，也需要更新房主自己的顯示
@@ -1181,7 +1223,11 @@ peer = new Peer(playerId, {
                     logMessage(message.message, message.messageType);
                 }
             } else if (conn) {
-                conn.send(message);
+                try {
+                    conn.send(message);
+                } catch (e) {
+                    console.error("發送訊息失敗:", e);
+                }
             }
         }
         
@@ -1295,6 +1341,15 @@ peer = new Peer(playerId, {
         // 更新玩家顯示
         function updatePlayersDisplay() {
             playersContainer.innerHTML = "";
+            
+            if (gameState.players.length === 0) {
+                playersContainer.innerHTML = `
+                    <div class="text-center" style="grid-column: 1 / -1; padding: 20px; color: var(--light-gold);">
+                        等待玩家加入房間...
+                    </div>
+                `;
+                return;
+            }
             
             gameState.players.forEach((player, index) => {
                 const playerCard = document.createElement("div");
@@ -1764,14 +1819,14 @@ peer = new Peer(playerId, {
             document.getElementById("hintModal").style.display = "none";
         }
         
-        // 更新提示表
+        // 更新提示表 - 修正剩餘張數計算
         function updateHintTable() {
             cardsTableBody.innerHTML = "";
             
             // 計算每種卡牌的剩餘數量
             const cardCounts = {};
             
-            // 初始化
+            // 初始化總數
             for (const [id, card] of Object.entries(CARDS)) {
                 cardCounts[id] = {
                     total: card.count,
@@ -1779,23 +1834,7 @@ peer = new Peer(playerId, {
                 };
             }
             
-            // 減去牌庫中的牌
-            gameState.deck.forEach(card => {
-                if (cardCounts[card.id]) {
-                    cardCounts[card.id].remaining--;
-                }
-            });
-            
-            // 減去玩家手中的牌
-            gameState.players.forEach(player => {
-                player.hand.forEach(card => {
-                    if (cardCounts[card.id]) {
-                        cardCounts[card.id].remaining--;
-                    }
-                });
-            });
-            
-            // 減去棄牌堆中的牌
+            // 減去已公開的牌（棄牌堆 + 移除的牌）
             gameState.discardPile.forEach(discard => {
                 if (cardCounts[discard.card.id]) {
                     cardCounts[discard.card.id].remaining--;
@@ -1807,11 +1846,14 @@ peer = new Peer(playerId, {
                 cardCounts[gameState.removedCard.id].remaining--;
             }
             
+            // 注意：玩家手牌是未公開的，所以不從剩餘張數中扣除
+            // 牌庫中的牌是剩餘的，也不扣除
+            
             // 生成表格行
             for (const [id, card] of Object.entries(CARDS)) {
                 const row = document.createElement("tr");
                 
-                const remaining = cardCounts[id] ? cardCounts[id].remaining : 0;
+                const remaining = cardCounts[id] ? Math.max(0, cardCounts[id].remaining) : 0;
                 const remainingClass = remaining > 0 ? "" : "style='color: var(--red);'";
                 
                 row.innerHTML = `
@@ -1825,22 +1867,6 @@ peer = new Peer(playerId, {
                 
                 cardsTableBody.appendChild(row);
             }
-        }
-        
-        // 查看棄牌堆
-        function viewDiscard() {
-            if (gameState.discardPile.length === 0) {
-                logMessage("棄牌堆是空的", "system");
-                return;
-            }
-            
-            let discardText = "棄牌堆: ";
-            gameState.discardPile.forEach((discard, index) => {
-                if (index > 0) discardText += ", ";
-                discardText += `${discard.card.name} (${discard.player})`;
-            });
-            
-            logMessage(discardText, "system");
         }
         
         // 擲骰子小遊戲
