@@ -916,13 +916,22 @@
             
             // 初始化PeerJS
             playerId = playerName + "_" + Math.random().toString(36).substring(2, 9);
-            peer = new Peer(playerId, {
-                host: '0.peerjs.com',
-                port: 443,
-                path: '/',
-                secure: true,
-                debug: 2
-            });
+            // 替換您現有的 peer = new Peer(...) 部分
+peer = new Peer(playerId, {
+    host: '0.peerjs.com', // PeerJS 的公共信令伺服器
+    port: 443,
+    path: '/',
+    secure: true,
+    config: {
+        'iceServers': [
+            { urls: 'stun:stun.l.google.com:19302' }, // 免費的公共 STUN 伺服器
+            { urls: 'stun:global.stun.twilio.com:3478' }
+            // 如果需要更強的連線能力，可考慮加入付費的 TURN 伺服器
+            // { urls: 'turn:your.turn.server:3478', username: 'username', credential: 'password' }
+        ]
+    },
+    debug: 2 // 可設定為 0 以減少控制台日誌
+});
             
             peer.on('open', function(id) {
                 logMessage(`連線成功! 你的ID: ${id}`, "system");
