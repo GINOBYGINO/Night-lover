@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>黃昏酒館【情書】</title>
+    <title>【情書】v0.3</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
@@ -611,7 +611,7 @@
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-crown"></i> 黃昏酒館【情書】V0.2</h1>
+            <h1><i class="fas fa-crown"></i> 【情書】v0.3</h1>
             <div class="subtitle">與2-5位朋友同樂的卡牌遊戲，小心刺客，守護公主！</div>
         </header>
         
@@ -915,7 +915,13 @@
             }
             
             // 初始化PeerJS
-            playerId = playerName + "_" + Math.random().toString(36).substring(2, 9);
+            // 修改 playerId 產生方式
+if (isHost) {
+    playerId = roomId + "_host";           // ← 房主固定用這個 ID
+} else {
+    playerId = "guest_" + Math.random().toString(36).substring(2, 10);
+    // 或乾脆用 peer 預設的隨機 ID： playerId = null; 讓 Peer() 自己產生
+}
             // 替換您現有的 peer = new Peer(...) 部分
 peer = new Peer(playerId, {
     host: '0.peerjs.com', // PeerJS 的公共信令伺服器
@@ -930,7 +936,7 @@ peer = new Peer(playerId, {
             // { urls: 'turn:your.turn.server:3478', username: 'username', credential: 'password' }
         ]
     },
-    debug: 2 // 可設定為 0 以減少控制台日誌
+    debug: 3 // 可設定為 0 以減少控制台日誌
 });
             
             peer.on('open', function(id) {
@@ -1936,4 +1942,3 @@ peer = new Peer(playerId, {
     </script>
 </body>
 </html>
-
