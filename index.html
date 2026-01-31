@@ -1,0 +1,1929 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>暗夜酒館 - 情書卡牌遊戲</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --dark-brown: #2c1b0f;
+            --medium-brown: #4a3728;
+            --light-brown: #7a5c3c;
+            --gold: #d4af37;
+            --light-gold: #f4e4b5;
+            --dark-gold: #b8941f;
+            --red: #8b0000;
+            --green: #006400;
+            --text-light: #f5deb3;
+            --text-dark: #3d2c1e;
+            --card-bg: #f8f1e5;
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to bottom, var(--dark-brown), var(--medium-brown));
+            color: var(--text-light);
+            min-height: 100vh;
+            padding: 10px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* 標題區域 */
+        header {
+            text-align: center;
+            padding: 15px;
+            border-bottom: 2px solid var(--gold);
+            margin-bottom: 20px;
+            background-color: rgba(44, 27, 15, 0.8);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px var(--shadow);
+        }
+
+        h1 {
+            color: var(--gold);
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px var(--shadow);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--light-gold);
+            margin-bottom: 15px;
+        }
+
+        /* 主遊戲區域 */
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 房間區域 */
+        .room-section {
+            background-color: rgba(74, 55, 40, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px var(--shadow);
+            border: 1px solid var(--light-brown);
+        }
+
+        .room-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            min-width: 200px;
+        }
+
+        label {
+            margin-bottom: 5px;
+            color: var(--light-gold);
+            font-weight: bold;
+        }
+
+        input, select, button {
+            padding: 12px 15px;
+            border-radius: 5px;
+            border: 1px solid var(--light-brown);
+            font-size: 1rem;
+        }
+
+        input, select {
+            background-color: var(--card-bg);
+            color: var(--text-dark);
+        }
+
+        button {
+            background-color: var(--gold);
+            color: var(--dark-brown);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--light-gold);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .danger-btn {
+            background-color: var(--red);
+            color: white;
+        }
+
+        .success-btn {
+            background-color: var(--green);
+            color: white;
+        }
+
+        /* 玩家列表 */
+        .players-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .player-card {
+            background-color: rgba(122, 92, 60, 0.7);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .player-card.host {
+            border-color: var(--gold);
+            background-color: rgba(122, 92, 60, 0.9);
+        }
+
+        .player-card.current-turn {
+            border-color: var(--green);
+            box-shadow: 0 0 10px var(--green);
+        }
+
+        .player-card.eliminated {
+            opacity: 0.7;
+            border-color: var(--red);
+        }
+
+        .player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            background-color: var(--dark-brown);
+        }
+
+        .player-info {
+            flex-grow: 1;
+        }
+
+        .player-name {
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .player-status {
+            font-size: 0.9rem;
+            color: var(--light-gold);
+        }
+
+        /* 遊戲區域 */
+        .game-section {
+            display: none;
+            background-color: rgba(74, 55, 40, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px var(--shadow);
+            border: 1px solid var(--light-brown);
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--light-brown);
+        }
+
+        .game-info {
+            display: flex;
+            gap: 20px;
+            font-size: 1.1rem;
+        }
+
+        .deck-info, .turn-info {
+            background-color: rgba(44, 27, 15, 0.7);
+            padding: 10px 15px;
+            border-radius: 5px;
+        }
+
+        /* 手牌區域 */
+        .hand-container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            width: 180px;
+            height: 250px;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 8px 16px var(--shadow);
+            border: 3px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 25px var(--shadow);
+        }
+
+        .card.selected {
+            border-color: var(--gold);
+            box-shadow: 0 0 20px var(--gold);
+        }
+
+        .card.played {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .card.played:hover {
+            transform: none;
+        }
+
+        .card-number {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: var(--gold);
+            color: var(--dark-brown);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .card-gender {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 1.5rem;
+        }
+
+        .male {
+            color: #1e90ff;
+        }
+
+        .female {
+            color: #ff69b4;
+        }
+
+        .card-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 20px;
+            color: var(--dark-brown);
+        }
+
+        .card-effect {
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 10px;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            padding: 0 5px;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, var(--dark-brown) 0%, var(--light-brown) 100%);
+            color: var(--light-gold);
+            justify-content: center;
+            font-size: 3rem;
+        }
+
+        .card-back .card-name {
+            color: var(--light-gold);
+        }
+
+        /* 遊戲控制區 */
+        .game-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            min-width: 180px;
+            padding: 15px;
+            font-size: 1.1rem;
+        }
+
+        /* 進度條 */
+        .progress-container {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: linear-gradient(to right, var(--dark-gold), var(--gold));
+            width: 0%;
+            transition: width 0.5s;
+            text-align: center;
+            color: var(--dark-brown);
+            font-weight: bold;
+            line-height: 20px;
+        }
+
+        /* 日誌區域 */
+        .log-section {
+            background-color: rgba(44, 27, 15, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px var(--shadow);
+            border: 1px solid var(--light-brown);
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: var(--gold);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .log-entry {
+            padding: 10px;
+            border-radius: 5px;
+            background-color: rgba(122, 92, 60, 0.5);
+            border-left: 4px solid var(--gold);
+        }
+
+        .log-entry.system {
+            border-left-color: var(--light-gold);
+            font-style: italic;
+        }
+
+        .log-entry.player-action {
+            border-left-color: var(--green);
+        }
+
+        .log-entry.elimination {
+            border-left-color: var(--red);
+        }
+
+        /* 提示卡/剩餘牌表 */
+        .hint-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hint-content {
+            background-color: var(--medium-brown);
+            border-radius: 10px;
+            padding: 30px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 3px solid var(--gold);
+            position: relative;
+        }
+
+        .close-hint {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--light-gold);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .hint-title {
+            color: var(--gold);
+            font-size: 2rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .cards-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .cards-table th, .cards-table td {
+            border: 1px solid var(--light-brown);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .cards-table th {
+            background-color: var(--dark-brown);
+            color: var(--gold);
+        }
+
+        .cards-table td {
+            background-color: rgba(248, 241, 229, 0.1);
+        }
+
+        .cards-table tr:hover td {
+            background-color: rgba(248, 241, 229, 0.2);
+        }
+
+        /* 待機房小遊戲 */
+        .waiting-room {
+            background-color: rgba(44, 27, 15, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+            border: 1px solid var(--light-brown);
+        }
+
+        .waiting-title {
+            color: var(--gold);
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+
+        .mini-game {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .dice-game {
+            background-color: rgba(122, 92, 60, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .dice-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .dice {
+            width: 60px;
+            height: 60px;
+            background-color: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--dark-brown);
+            box-shadow: 0 5px 10px var(--shadow);
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .room-controls {
+                flex-direction: column;
+            }
+            
+            .input-group {
+                width: 100%;
+            }
+            
+            .hand-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .game-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .game-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+
+        /* 動畫 */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* 工具類 */
+        .hidden {
+            display: none !important;
+        }
+
+        .visible {
+            display: block !important;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mt-20 {
+            margin-top: 20px;
+        }
+
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-crown"></i> 暗夜酒館 - 情書卡牌遊戲</h1>
+            <div class="subtitle">與2-5位朋友同樂的卡牌遊戲，小心刺客，守護公主！</div>
+        </header>
+        
+        <div class="game-area">
+            <!-- 房間區域 -->
+            <section class="room-section" id="roomSection">
+                <h2>遊戲房間</h2>
+                <div class="room-controls">
+                    <div class="input-group">
+                        <label for="playerName">你的名字</label>
+                        <input type="text" id="playerName" placeholder="輸入你的名字" value="玩家">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="roomId">房間ID</label>
+                        <input type="text" id="roomId" placeholder="輸入房間ID (留空則創建新房間)">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="avatar">選擇頭像</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div id="avatarDisplay" style="font-size: 2rem; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; background-color: var(--dark-brown); border-radius: 50%;">😊</div>
+                            <button id="randomAvatar" style="flex-grow: 1;">隨機頭像</button>
+                        </div>
+                    </div>
+                    
+                    <button id="joinRoom" class="success-btn">
+                        <i class="fas fa-door-open"></i> 加入房間
+                    </button>
+                    
+                    <button id="startGame" class="success-btn" disabled>
+                        <i class="fas fa-play"></i> 開始遊戲
+                    </button>
+                    
+                    <button id="leaveRoom" class="danger-btn" disabled>
+                        <i class="fas fa-door-closed"></i> 離開房間
+                    </button>
+                </div>
+                
+                <div class="players-container" id="playersContainer">
+                    <!-- 玩家列表將動態生成 -->
+                    <div class="text-center" style="grid-column: 1 / -1; padding: 20px; color: var(--light-gold);">
+                        等待玩家加入房間...
+                    </div>
+                </div>
+                
+                <!-- 待機房小遊戲 -->
+                <div class="waiting-room">
+                    <div class="waiting-title">等待遊戲開始...</div>
+                    <div class="mini-game">
+                        <p>擲骰子打發時間，比誰點數大！</p>
+                        <div class="dice-game">
+                            <div class="dice-container">
+                                <div class="dice" id="dice1">?</div>
+                                <div class="dice" id="dice2">?</div>
+                            </div>
+                            <button id="rollDice">
+                                <i class="fas fa-dice"></i> 擲骰子
+                            </button>
+                            <div id="diceResult" class="mt-20"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 遊戲區域 -->
+            <section class="game-section" id="gameSection">
+                <div class="game-header">
+                    <div>
+                        <h2>遊戲進行中</h2>
+                        <div class="game-info">
+                            <div class="deck-info">
+                                <i class="fas fa-layer-group"></i> 牌庫剩餘: <span id="deckCount">0</span> 張
+                            </div>
+                            <div class="turn-info">
+                                <i class="fas fa-user-clock"></i> 當前回合: <span id="currentPlayer">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button id="showHint">
+                            <i class="fas fa-question-circle"></i> 提示卡/剩餘牌表
+                        </button>
+                        <button id="endTurn" disabled>
+                            <i class="fas fa-forward"></i> 結束回合
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 進度條 -->
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar" id="progressBar">處理中...</div>
+                </div>
+                
+                <!-- 手牌區域 -->
+                <div class="hand-container" id="handContainer">
+                    <!-- 手牌將動態生成 -->
+                    <div class="card card-back">
+                        <div class="card-name">牌背</div>
+                        <i class="fas fa-question"></i>
+                    </div>
+                    <div class="card card-back">
+                        <div class="card-name">牌背</div>
+                        <i class="fas fa-question"></i>
+                    </div>
+                </div>
+                
+                <!-- 遊戲控制區 -->
+                <div class="game-controls">
+                    <button id="drawCard" class="action-btn" disabled>
+                        <i class="fas fa-hand-paper"></i> 抽一張牌
+                    </button>
+                    <button id="playCard" class="action-btn" disabled>
+                        <i class="fas fa-play-circle"></i> 打出選中的牌
+                    </button>
+                    <button id="viewDiscard" class="action-btn">
+                        <i class="fas fa-trash-alt"></i> 查看棄牌堆
+                    </button>
+                </div>
+                
+                <!-- 玩家選擇區域（用於需要指定目標的卡牌） -->
+                <div id="playerSelection" class="hidden" style="margin-top: 20px; padding: 20px; background-color: rgba(44, 27, 15, 0.7); border-radius: 10px;">
+                    <h3>選擇目標玩家</h3>
+                    <div id="selectablePlayers" style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+                        <!-- 可選玩家將動態生成 -->
+                    </div>
+                    <button id="cancelSelection" style="margin-top: 15px;">取消選擇</button>
+                </div>
+                
+                <!-- 猜牌選擇區域（用於衛兵/兵長） -->
+                <div id="guessSelection" class="hidden" style="margin-top: 20px; padding: 20px; background-color: rgba(44, 27, 15, 0.7); border-radius: 10px;">
+                    <h3>猜測目標玩家的手牌</h3>
+                    <div style="margin-bottom: 15px;">
+                        <p>你正在猜測 <span id="guessTargetName" style="font-weight: bold; color: var(--gold);">-</span> 的手牌</p>
+                    </div>
+                    <div id="guessOptions" style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+                        <!-- 猜牌選項將動態生成 -->
+                    </div>
+                    <button id="cancelGuess" style="margin-top: 15px;">取消猜牌</button>
+                </div>
+            </section>
+            
+            <!-- 遊戲日誌區域 -->
+            <section class="log-section">
+                <div class="log-title">
+                    <span>遊戲日誌</span>
+                    <button id="clearLog" style="background: none; border: none; color: var(--light-gold); font-size: 1rem;">
+                        <i class="fas fa-trash-alt"></i> 清空日誌
+                    </button>
+                </div>
+                <div class="log-content" id="gameLog">
+                    <div class="log-entry system">
+                        <i class="fas fa-info-circle"></i> 歡迎來到暗夜酒館卡牌遊戲！請加入或創建一個房間開始遊戲。
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <!-- 提示卡/剩餘牌表模態框 -->
+    <div class="hint-modal" id="hintModal">
+        <div class="hint-content">
+            <button class="close-hint" id="closeHint">&times;</button>
+            <h2 class="hint-title">提示卡 / 剩餘牌表</h2>
+            <table class="cards-table">
+                <thead>
+                    <tr>
+                        <th>號碼</th>
+                        <th>角色名稱</th>
+                        <th>性別</th>
+                        <th>總張數</th>
+                        <th>剩餘張數</th>
+                        <th>技能說明</th>
+                    </tr>
+                </thead>
+                <tbody id="cardsTableBody">
+                    <!-- 卡片資訊將動態生成 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        // 遊戲常量
+        const CARDS = {
+            1: { name: "刺客", gender: "male", count: 3, effect: "持有這張牌時，若有人猜錯你的身分，對方出局，你棄掉此手牌，再抽一張" },
+            2: { name: "衛兵", gender: "female", count: 5, effect: "猜任一個玩家的手牌，猜對該玩家出局，猜錯沒事。不可以猜2號。" },
+            2.5: { name: "兵長", gender: "female", count: 1, effect: "猜每一個玩家的手牌，猜對該玩家出局，猜錯沒事。不可以猜2號。" },
+            3: { name: "神父", gender: "male", count: 2, effect: "私底下查看任一位玩家的手牌，不可以公開給其他玩家。" },
+            3.5: { name: "邱比特", gender: "male", count: 2, effect: "私底下與任一位玩家用手牌比大小，同性時，數字小的玩家出局，異性時，數字大的玩家出局，平手沒事。" },
+            4: { name: "男爵", gender: "male", count: 2, effect: "私底下與任一位玩家用手牌比大小，數字小的玩家出局，平手沒事。" },
+            4.5: { name: "預言家", gender: "female", count: 2, effect: "抽一張牌，將此牌或手牌其一放入牌庫最下方" },
+            5: { name: "侍女", gender: "female", count: 2, effect: "打出此卡的玩家，在下次輪到他之前，都是無敵的狀態，其他玩家不可以對他使用技能。" },
+            5.5: { name: "小丑", gender: "male", count: 2, effect: "使用其餘玩家最後打出的牌，若場上無牌，則沒有效果" },
+            6: { name: "王子", gender: "male", count: 1, effect: "指定任一位玩家面朝上棄掉手牌，並再抽一張新牌。可以指定自己。" },
+            7: { name: "國王", gender: "male", count: 1, effect: "與任一位玩家交換手牌。" },
+            8: { name: "伯爵夫人", gender: "female", count: 1, effect: "當玩家手中有王子或國王與公爵夫人，必須打出公爵夫人，不可以打出王子或國王。" },
+            9: { name: "公主", gender: "female", count: 1, effect: "玩家若棄掉該牌，直接出局。在比大小時必勝(包含邱比特)" }
+        };
+        
+        const EMOJIS = ["😀", "😎", "🤠", "🧐", "🤩", "🥳", "😇", "😈", "👻", "🤖", "👽", "🐶", "🐱", "🐼", "🦊", "🐯", "🦁", "🐮", "🐷", "🐵", "🐔", "🐧", "🐦", "🐺", "🦄"];
+        
+        // 遊戲狀態變數
+        let peer = null;
+        let conn = null;
+        let hostConnections = [];
+        let isHost = false;
+        let playerId = null;
+        let playerName = "";
+        let playerAvatar = "😊";
+        let roomId = "";
+        let gameState = {
+            players: [],
+            deck: [],
+            discardPile: [],
+            currentPlayerIndex: -1,
+            phase: "waiting", // waiting, setup, playing, ended
+            selectedCard: null,
+            lastPlayedCard: null,
+            protectedPlayers: [], // 受侍女保護的玩家
+            eliminatedPlayers: [],
+            removedCard: null
+        };
+        
+        // DOM 元素
+        const roomSection = document.getElementById("roomSection");
+        const gameSection = document.getElementById("gameSection");
+        const playersContainer = document.getElementById("playersContainer");
+        const handContainer = document.getElementById("handContainer");
+        const gameLog = document.getElementById("gameLog");
+        const deckCount = document.getElementById("deckCount");
+        const currentPlayer = document.getElementById("currentPlayer");
+        const progressContainer = document.getElementById("progressContainer");
+        const progressBar = document.getElementById("progressBar");
+        const cardsTableBody = document.getElementById("cardsTableBody");
+        
+        // 初始化
+        document.addEventListener("DOMContentLoaded", function() {
+            // 生成隨機房間ID
+            document.getElementById("roomId").placeholder = "留空以創建房間 (例如: " + generateRoomId() + ")";
+            
+            // 事件監聽器
+            document.getElementById("randomAvatar").addEventListener("click", randomizeAvatar);
+            document.getElementById("joinRoom").addEventListener("click", joinOrCreateRoom);
+            document.getElementById("startGame").addEventListener("click", startGame);
+            document.getElementById("leaveRoom").addEventListener("click", leaveRoom);
+            document.getElementById("showHint").addEventListener("click", showHint);
+            document.getElementById("closeHint").addEventListener("click", hideHint);
+            document.getElementById("drawCard").addEventListener("click", drawCard);
+            document.getElementById("playCard").addEventListener("click", playCard);
+            document.getElementById("endTurn").addEventListener("click", endTurn);
+            document.getElementById("viewDiscard").addEventListener("click", viewDiscard);
+            document.getElementById("clearLog").addEventListener("click", clearLog);
+            document.getElementById("rollDice").addEventListener("click", rollDice);
+            
+            // 點擊模態框外部關閉
+            document.getElementById("hintModal").addEventListener("click", function(e) {
+                if (e.target === this) hideHint();
+            });
+            
+            // 初始化玩家名稱
+            playerName = document.getElementById("playerName").value;
+            document.getElementById("playerName").addEventListener("change", function() {
+                playerName = this.value;
+                if (conn && isHost) {
+                    broadcast({ type: "PLAYER_UPDATE", playerId, name: playerName, avatar: playerAvatar });
+                }
+            });
+        });
+        
+        // 生成隨機房間ID
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+        
+        // 隨機頭像
+        function randomizeAvatar() {
+            const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            playerAvatar = randomEmoji;
+            document.getElementById("avatarDisplay").textContent = randomEmoji;
+            
+            if (conn && isHost) {
+                broadcast({ type: "PLAYER_UPDATE", playerId, name: playerName, avatar: playerAvatar });
+            }
+        }
+        
+        // 加入或創建房間
+        function joinOrCreateRoom() {
+            playerName = document.getElementById("playerName").value.trim() || "玩家";
+            roomId = document.getElementById("roomId").value.trim();
+            
+            if (!roomId) {
+                // 創建新房間
+                roomId = generateRoomId();
+                document.getElementById("roomId").value = roomId;
+                isHost = true;
+                logMessage(`已創建房間: ${roomId}`, "system");
+            } else {
+                logMessage(`正在加入房間: ${roomId}`, "system");
+            }
+            
+            // 初始化PeerJS
+            playerId = playerName + "_" + Math.random().toString(36).substring(2, 9);
+            peer = new Peer(playerId, {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true,
+                debug: 2
+            });
+            
+            peer.on('open', function(id) {
+                logMessage(`連線成功! 你的ID: ${id}`, "system");
+                
+                if (isHost) {
+                    logMessage(`你是房主，等待其他玩家加入...`, "system");
+                    document.getElementById("startGame").disabled = false;
+                } else {
+                    // 嘗試連接到主機
+                    conn = peer.connect(roomId + "_host");
+                    setupConnection(conn);
+                }
+                
+                document.getElementById("joinRoom").disabled = true;
+                document.getElementById("leaveRoom").disabled = false;
+                document.getElementById("playerName").disabled = true;
+                document.getElementById("roomId").disabled = true;
+                
+                // 將自己加入玩家列表
+                if (isHost) {
+                    gameState.players.push({
+                        id: playerId,
+                        name: playerName,
+                        avatar: playerAvatar,
+                        isHost: true,
+                        hand: [],
+                        isProtected: false,
+                        isEliminated: false
+                    });
+                    updatePlayersDisplay();
+                }
+            });
+            
+            peer.on('connection', function(connection) {
+                if (isHost) {
+                    logMessage(`${connection.peer} 正在連線...`, "system");
+                    setupConnection(connection);
+                }
+            });
+            
+            peer.on('error', function(err) {
+                logMessage(`連線錯誤: ${err.type}`, "system");
+                console.error('PeerJS error:', err);
+            });
+        }
+        
+        // 設置連線
+        function setupConnection(connection) {
+            conn = connection;
+            
+            connection.on('open', function() {
+                logMessage(`已連線到 ${connection.peer}`, "system");
+                
+                if (isHost) {
+                    hostConnections.push(connection);
+                    
+                    // 發送歡迎訊息和當前遊戲狀態
+                    connection.send({
+                        type: "WELCOME",
+                        playerId: connection.peer,
+                        gameState: gameState,
+                        isHost: false
+                    });
+                    
+                    // 廣播新玩家加入
+                    broadcast({
+                        type: "PLAYER_JOINED",
+                        player: {
+                            id: connection.peer,
+                            name: connection.peer.split("_")[0],
+                            avatar: "😊",
+                            isHost: false,
+                            hand: [],
+                            isProtected: false,
+                            isEliminated: false
+                        }
+                    });
+                } else {
+                    // 發送加入訊息
+                    connection.send({
+                        type: "JOIN",
+                        playerId: playerId,
+                        name: playerName,
+                        avatar: playerAvatar
+                    });
+                }
+            });
+            
+            connection.on('data', function(data) {
+                handleMessage(data, connection);
+            });
+            
+            connection.on('close', function() {
+                logMessage(`連線關閉: ${connection.peer}`, "system");
+                if (isHost) {
+                    // 從連線列表中移除
+                    const index = hostConnections.indexOf(connection);
+                    if (index > -1) hostConnections.splice(index, 1);
+                    
+                    // 從玩家列表中移除
+                    const playerIndex = gameState.players.findIndex(p => p.id === connection.peer);
+                    if (playerIndex > -1) {
+                        const playerName = gameState.players[playerIndex].name;
+                        gameState.players.splice(playerIndex, 1);
+                        logMessage(`${playerName} 已離開房間`, "system");
+                        broadcast({ type: "PLAYER_LEFT", playerId: connection.peer });
+                    }
+                }
+            });
+            
+            connection.on('error', function(err) {
+                logMessage(`連線錯誤: ${err}`, "system");
+                console.error('Connection error:', err);
+            });
+        }
+        
+        // 處理訊息
+        function handleMessage(data, connection) {
+            console.log("收到訊息:", data);
+            
+            switch(data.type) {
+                case "JOIN":
+                    if (isHost) {
+                        // 將新玩家加入遊戲
+                        const newPlayer = {
+                            id: data.playerId,
+                            name: data.name,
+                            avatar: data.avatar,
+                            isHost: false,
+                            hand: [],
+                            isProtected: false,
+                            isEliminated: false
+                        };
+                        
+                        gameState.players.push(newPlayer);
+                        logMessage(`${data.name} 加入了遊戲`, "system");
+                        
+                        // 通知所有玩家
+                        broadcast({
+                            type: "PLAYER_JOINED",
+                            player: newPlayer
+                        });
+                        
+                        // 回傳確認訊息
+                        connection.send({
+                            type: "JOIN_ACCEPTED",
+                            playerId: data.playerId,
+                            gameState: gameState
+                        });
+                    }
+                    break;
+                    
+                case "START_GAME":
+                    if (!isHost) {
+                        gameState = data.gameState;
+                        startGameUI();
+                        updateGameDisplay();
+                        logMessage("遊戲開始!", "system");
+                    }
+                    break;
+                    
+                case "GAME_STATE_UPDATE":
+                    if (!isHost) {
+                        gameState = data.gameState;
+                        updateGameDisplay();
+                    }
+                    break;
+                    
+                case "PLAYER_UPDATE":
+                    if (!isHost) {
+                        // 更新玩家資訊
+                        const playerIndex = gameState.players.findIndex(p => p.id === data.playerId);
+                        if (playerIndex > -1) {
+                            gameState.players[playerIndex].name = data.name;
+                            gameState.players[playerIndex].avatar = data.avatar;
+                            updatePlayersDisplay();
+                        }
+                    }
+                    break;
+                    
+                case "PLAYER_JOINED":
+                    if (!isHost) {
+                        gameState.players.push(data.player);
+                        updatePlayersDisplay();
+                        logMessage(`${data.player.name} 加入了遊戲`, "system");
+                    }
+                    break;
+                    
+                case "PLAYER_LEFT":
+                    if (!isHost) {
+                        const playerIndex = gameState.players.findIndex(p => p.id === data.playerId);
+                        if (playerIndex > -1) {
+                            const playerName = gameState.players[playerIndex].name;
+                            gameState.players.splice(playerIndex, 1);
+                            updatePlayersDisplay();
+                            logMessage(`${playerName} 已離開房間`, "system");
+                        }
+                    }
+                    break;
+                    
+                case "LOG_MESSAGE":
+                    logMessage(data.message, data.messageType);
+                    break;
+                    
+                case "ACTION_REQUEST":
+                    if (isHost) {
+                        handleActionRequest(data, connection);
+                    }
+                    break;
+                    
+                case "DICE_ROLL_RESULT":
+                    if (isHost) {
+                        broadcast(data);
+                    } else {
+                        document.getElementById("diceResult").innerHTML = `
+                            <strong>${data.playerName}</strong> 擲出了 
+                            <span style="color:var(--gold);">${data.dice1}</span> 和 
+                            <span style="color:var(--gold);">${data.dice2}</span> 
+                            (總和: ${data.total})
+                        `;
+                    }
+                    break;
+            }
+        }
+        
+        // 廣播訊息給所有玩家
+        function broadcast(message) {
+            if (isHost) {
+                // 發送給所有連線的玩家
+                hostConnections.forEach(conn => {
+                    conn.send(message);
+                });
+                
+                // 如果是遊戲狀態更新，也需要更新房主自己的顯示
+                if (message.type === "GAME_STATE_UPDATE") {
+                    updateGameDisplay();
+                }
+                
+                // 如果是日誌訊息，也需要顯示在房主的日誌中
+                if (message.type === "LOG_MESSAGE") {
+                    logMessage(message.message, message.messageType);
+                }
+            } else if (conn) {
+                conn.send(message);
+            }
+        }
+        
+        // 開始遊戲
+        function startGame() {
+            if (!isHost || gameState.players.length < 2 || gameState.players.length > 5) {
+                logMessage("需要2-5名玩家才能開始遊戲", "system");
+                return;
+            }
+            
+            logMessage("遊戲設置中...", "system");
+            showProgress("遊戲設置中...", 100);
+            
+            // 初始化牌庫
+            gameState.deck = [];
+            for (const [id, card] of Object.entries(CARDS)) {
+                for (let i = 0; i < card.count; i++) {
+                    gameState.deck.push({
+                        id: parseFloat(id),
+                        name: card.name,
+                        gender: card.gender,
+                        effect: card.effect
+                    });
+                }
+            }
+            
+            // 洗牌
+            shuffleDeck(gameState.deck);
+            
+            // 隨機移除一張牌
+            gameState.removedCard = gameState.deck.pop();
+            
+            // 發牌給每位玩家
+            gameState.players.forEach(player => {
+                if (gameState.deck.length > 0) {
+                    player.hand = [gameState.deck.pop()];
+                }
+                player.isProtected = false;
+                player.isEliminated = false;
+            });
+            
+            // 初始化棄牌堆
+            gameState.discardPile = [];
+            gameState.currentPlayerIndex = 0;
+            gameState.phase = "playing";
+            gameState.protectedPlayers = [];
+            gameState.eliminatedPlayers = [];
+            gameState.selectedCard = null;
+            gameState.lastPlayedCard = null;
+            
+            // 廣播遊戲開始
+            broadcast({
+                type: "START_GAME",
+                gameState: gameState
+            });
+            
+            // 更新房主界面
+            startGameUI();
+            updateGameDisplay();
+            
+            setTimeout(() => {
+                hideProgress();
+                logMessage("遊戲開始! 當前回合: " + gameState.players[0].name, "system");
+                logMessage("請點擊「抽一張牌」開始你的回合", "system");
+            }, 1000);
+        }
+        
+        // 洗牌函數
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+        
+        // 開始遊戲UI
+        function startGameUI() {
+            roomSection.style.display = "none";
+            gameSection.style.display = "block";
+            updateHintTable();
+        }
+        
+        // 更新遊戲顯示
+        function updateGameDisplay() {
+            // 更新玩家列表
+            updatePlayersDisplay();
+            
+            // 更新牌庫數量
+            deckCount.textContent = gameState.deck.length;
+            
+            // 更新當前回合玩家
+            if (gameState.currentPlayerIndex >= 0 && gameState.currentPlayerIndex < gameState.players.length) {
+                currentPlayer.textContent = gameState.players[gameState.currentPlayerIndex].name;
+            }
+            
+            // 更新手牌顯示
+            updateHandDisplay();
+            
+            // 更新按鈕狀態
+            const isMyTurn = gameState.players[gameState.currentPlayerIndex] && 
+                            gameState.players[gameState.currentPlayerIndex].id === playerId;
+            
+            document.getElementById("drawCard").disabled = !isMyTurn || gameState.selectedCard !== null;
+            document.getElementById("playCard").disabled = !isMyTurn || gameState.selectedCard === null;
+            document.getElementById("endTurn").disabled = !isMyTurn;
+            
+            // 更新提示表
+            updateHintTable();
+        }
+        
+        // 更新玩家顯示
+        function updatePlayersDisplay() {
+            playersContainer.innerHTML = "";
+            
+            gameState.players.forEach((player, index) => {
+                const playerCard = document.createElement("div");
+                playerCard.className = "player-card";
+                
+                if (player.isHost) playerCard.classList.add("host");
+                if (index === gameState.currentPlayerIndex) playerCard.classList.add("current-turn");
+                if (player.isEliminated) playerCard.classList.add("eliminated");
+                
+                playerCard.innerHTML = `
+                    <div class="player-avatar">${player.avatar}</div>
+                    <div class="player-info">
+                        <div class="player-name">${player.name} ${player.isHost ? "👑" : ""}</div>
+                        <div class="player-status">
+                            ${player.isEliminated ? "❌ 已出局" : "✅ 存活"} 
+                            ${player.isProtected ? "🛡️ 受保護" : ""}
+                            ${player.hand.length > 0 ? "🃏 有手牌" : "🃏 無手牌"}
+                        </div>
+                    </div>
+                `;
+                
+                playersContainer.appendChild(playerCard);
+            });
+        }
+        
+        // 更新手牌顯示
+        function updateHandDisplay() {
+            handContainer.innerHTML = "";
+            
+            // 找到當前玩家
+            const currentPlayerObj = gameState.players.find(p => p.id === playerId);
+            if (!currentPlayerObj || currentPlayerObj.isEliminated) {
+                // 如果玩家已出局，顯示所有玩家的手牌（上帝視角）
+                gameState.players.forEach(player => {
+                    if (!player.isEliminated && player.hand.length > 0) {
+                        const card = player.hand[0];
+                        const cardElement = createCardElement(card, false, player.id === playerId);
+                        handContainer.appendChild(cardElement);
+                    }
+                });
+                return;
+            }
+            
+            // 正常顯示自己的手牌
+            currentPlayerObj.hand.forEach((card, index) => {
+                const cardElement = createCardElement(card, index === gameState.selectedCard, true);
+                cardElement.addEventListener("click", () => selectCard(index));
+                handContainer.appendChild(cardElement);
+            });
+            
+            // 如果只有一張牌，顯示一張牌背
+            if (currentPlayerObj.hand.length === 1) {
+                const cardBack = document.createElement("div");
+                cardBack.className = "card card-back";
+                cardBack.innerHTML = `
+                    <div class="card-name">牌背</div>
+                    <i class="fas fa-question"></i>
+                `;
+                handContainer.appendChild(cardBack);
+            }
+        }
+        
+        // 創建卡片元素
+        function createCardElement(card, isSelected, isOwnCard) {
+            const cardElement = document.createElement("div");
+            cardElement.className = "card";
+            if (isSelected) cardElement.classList.add("selected");
+            
+            const genderIcon = card.gender === "male" ? "♂" : "♀";
+            const genderClass = card.gender === "male" ? "male" : "female";
+            
+            cardElement.innerHTML = `
+                <div class="card-number">${card.id}</div>
+                <div class="card-gender ${genderClass}">${genderIcon}</div>
+                <div class="card-name">${card.name}</div>
+                <div class="card-effect">${isOwnCard ? card.effect : "???"}</div>
+            `;
+            
+            return cardElement;
+        }
+        
+        // 選擇卡片
+        function selectCard(index) {
+            const currentPlayerObj = gameState.players.find(p => p.id === playerId);
+            if (!currentPlayerObj || currentPlayerObj.isEliminated) return;
+            
+            if (gameState.selectedCard === index) {
+                gameState.selectedCard = null;
+            } else {
+                gameState.selectedCard = index;
+            }
+            
+            updateGameDisplay();
+        }
+        
+        // 抽牌
+        function drawCard() {
+            const currentPlayerObj = gameState.players.find(p => p.id === playerId);
+            if (!currentPlayerObj || currentPlayerObj.isEliminated || currentPlayerObj.hand.length >= 2) {
+                logMessage("你現在不能抽牌", "system");
+                return;
+            }
+            
+            showProgress("抽牌中...", 50);
+            
+            // 發送動作請求給主機
+            broadcast({
+                type: "ACTION_REQUEST",
+                action: "DRAW_CARD",
+                playerId: playerId
+            });
+        }
+        
+        // 出牌
+        function playCard() {
+            if (gameState.selectedCard === null) {
+                logMessage("請先選擇一張牌", "system");
+                return;
+            }
+            
+            const currentPlayerObj = gameState.players.find(p => p.id === playerId);
+            if (!currentPlayerObj || currentPlayerObj.isEliminated) return;
+            
+            const selectedCard = currentPlayerObj.hand[gameState.selectedCard];
+            
+            showProgress(`打出 ${selectedCard.name}...`, 50);
+            
+            // 發送動作請求給主機
+            broadcast({
+                type: "ACTION_REQUEST",
+                action: "PLAY_CARD",
+                playerId: playerId,
+                cardIndex: gameState.selectedCard
+            });
+        }
+        
+        // 結束回合
+        function endTurn() {
+            showProgress("結束回合...", 50);
+            
+            broadcast({
+                type: "ACTION_REQUEST",
+                action: "END_TURN",
+                playerId: playerId
+            });
+        }
+        
+        // 處理動作請求（僅主機執行）
+        function handleActionRequest(data, connection) {
+            const player = gameState.players.find(p => p.id === data.playerId);
+            if (!player) return;
+            
+            switch(data.action) {
+                case "DRAW_CARD":
+                    if (player.hand.length >= 2) {
+                        connection.send({
+                            type: "LOG_MESSAGE",
+                            message: "你已經有兩張手牌了",
+                            messageType: "system"
+                        });
+                        return;
+                    }
+                    
+                    if (gameState.deck.length === 0) {
+                        // 如果牌庫沒牌了，將移除的牌重新加入
+                        if (gameState.removedCard) {
+                            gameState.deck.push(gameState.removedCard);
+                            gameState.removedCard = null;
+                            shuffleDeck(gameState.deck);
+                            logMessage("牌庫已空，將移除的牌重新加入牌庫", "system");
+                        } else {
+                            // 遊戲結束
+                            endGame();
+                            return;
+                        }
+                    }
+                    
+                    player.hand.push(gameState.deck.pop());
+                    logMessage(`${player.name} 抽了一張牌`, "player-action");
+                    
+                    broadcast({
+                        type: "GAME_STATE_UPDATE",
+                        gameState: gameState
+                    });
+                    break;
+                    
+                case "PLAY_CARD":
+                    if (data.cardIndex === undefined || data.cardIndex >= player.hand.length) return;
+                    
+                    const playedCard = player.hand[data.cardIndex];
+                    
+                    // 檢查是否必須打出伯爵夫人
+                    const hasPrinceOrKing = player.hand.some(card => card.id === 6 || card.id === 7);
+                    if (hasPrinceOrKing && playedCard.id !== 8) {
+                        // 檢查手牌中是否有伯爵夫人
+                        const hasCountess = player.hand.some(card => card.id === 8);
+                        if (hasCountess) {
+                            connection.send({
+                                type: "LOG_MESSAGE",
+                                message: "你手中有王子或國王與伯爵夫人，必須打出伯爵夫人",
+                                messageType: "system"
+                            });
+                            return;
+                        }
+                    }
+                    
+                    // 從手牌中移除
+                    player.hand.splice(data.cardIndex, 1);
+                    
+                    // 添加到棄牌堆
+                    gameState.discardPile.push({
+                        card: playedCard,
+                        player: player.name,
+                        turn: gameState.currentPlayerIndex
+                    });
+                    
+                    gameState.lastPlayedCard = playedCard;
+                    
+                    logMessage(`${player.name} 打出了 ${playedCard.name}`, "player-action");
+                    
+                    // 執行卡片效果
+                    executeCardEffect(playedCard, player, connection);
+                    
+                    broadcast({
+                        type: "GAME_STATE_UPDATE",
+                        gameState: gameState
+                    });
+                    break;
+                    
+                case "END_TURN":
+                    // 移除非當前回合玩家的保護狀態
+                    gameState.protectedPlayers = gameState.protectedPlayers.filter(p => 
+                        p.playerId === player.id && p.expiresAfter === gameState.currentPlayerIndex
+                    );
+                    
+                    // 切換到下一位玩家
+                    let nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+                    while (gameState.players[nextPlayerIndex].isEliminated) {
+                        nextPlayerIndex = (nextPlayerIndex + 1) % gameState.players.length;
+                    }
+                    
+                    gameState.currentPlayerIndex = nextPlayerIndex;
+                    gameState.selectedCard = null;
+                    
+                    logMessage(`回合結束，現在是 ${gameState.players[nextPlayerIndex].name} 的回合`, "system");
+                    
+                    broadcast({
+                        type: "GAME_STATE_UPDATE",
+                        gameState: gameState
+                    });
+                    
+                    // 檢查遊戲是否結束
+                    checkGameEnd();
+                    break;
+            }
+        }
+        
+        // 執行卡片效果
+        function executeCardEffect(card, player, connection) {
+            // 根據卡片ID執行不同效果
+            switch(card.id) {
+                case 1: // 刺客
+                    // 被動效果，在猜錯時觸發
+                    logMessage(`${card.name} 已打出，被動效果已啟用`, "system");
+                    break;
+                    
+                case 2: // 衛兵
+                case 2.5: // 兵長
+                    // 需要猜牌，發送請求給玩家選擇目標和猜測
+                    connection.send({
+                        type: "ACTION_REQUEST",
+                        action: "GUESS_CARD",
+                        cardId: card.id
+                    });
+                    break;
+                    
+                case 5: // 侍女
+                    // 給予保護狀態直到下次回合
+                    gameState.protectedPlayers.push({
+                        playerId: player.id,
+                        expiresAfter: (gameState.currentPlayerIndex + 1) % gameState.players.length
+                    });
+                    player.isProtected = true;
+                    logMessage(`${player.name} 受到 ${card.name} 保護，直到下次回合開始`, "system");
+                    break;
+                    
+                case 6: // 王子
+                    // 需要選擇目標玩家棄牌
+                    connection.send({
+                        type: "ACTION_REQUEST",
+                        action: "SELECT_PLAYER",
+                        cardId: card.id,
+                        message: "選擇一位玩家棄掉手牌"
+                    });
+                    break;
+                    
+                case 7: // 國王
+                    // 需要選擇目標玩家交換手牌
+                    connection.send({
+                        type: "ACTION_REQUEST",
+                        action: "SELECT_PLAYER",
+                        cardId: card.id,
+                        message: "選擇一位玩家交換手牌"
+                    });
+                    break;
+                    
+                case 9: // 公主
+                    // 棄掉公主直接出局（這在棄牌時檢查）
+                    logMessage(`${card.name} 已打出，棄掉公主會直接出局`, "system");
+                    break;
+                    
+                default:
+                    logMessage(`${card.name} 效果已執行`, "system");
+                    break;
+            }
+        }
+        
+        // 檢查遊戲是否結束
+        function checkGameEnd() {
+            // 檢查是否只剩一位玩家未出局
+            const alivePlayers = gameState.players.filter(p => !p.isEliminated);
+            if (alivePlayers.length === 1) {
+                endGame();
+                return;
+            }
+            
+            // 檢查牌庫是否抽完
+            if (gameState.deck.length === 0) {
+                // 如果移除的牌還有，重新加入
+                if (gameState.removedCard) {
+                    gameState.deck.push(gameState.removedCard);
+                    gameState.removedCard = null;
+                    shuffleDeck(gameState.deck);
+                    logMessage("牌庫已空，將移除的牌重新加入牌庫", "system");
+                    broadcast({
+                        type: "GAME_STATE_UPDATE",
+                        gameState: gameState
+                    });
+                } else {
+                    endGame();
+                }
+            }
+        }
+        
+        // 結束遊戲
+        function endGame() {
+            gameState.phase = "ended";
+            
+            // 找出未出局的玩家
+            const alivePlayers = gameState.players.filter(p => !p.isEliminated);
+            
+            if (alivePlayers.length === 1) {
+                // 只剩一位玩家，直接獲勝
+                logMessage(`遊戲結束！${alivePlayers[0].name} 獲勝！`, "system");
+            } else {
+                // 多位玩家未出局，比較手牌數字大小
+                logMessage("遊戲結束！牌庫已空，比較手牌大小...", "system");
+                
+                let maxCardValue = -1;
+                let winners = [];
+                
+                alivePlayers.forEach(player => {
+                    if (player.hand.length > 0) {
+                        const cardValue = player.hand[0].id;
+                        if (cardValue > maxCardValue) {
+                            maxCardValue = cardValue;
+                            winners = [player];
+                        } else if (cardValue === maxCardValue) {
+                            winners.push(player);
+                        }
+                    }
+                });
+                
+                if (winners.length === 1) {
+                    logMessage(`${winners[0].name} 的手牌數字最大 (${maxCardValue})，獲勝！`, "system");
+                } else {
+                    const winnerNames = winners.map(w => w.name).join(", ");
+                    logMessage(`${winnerNames} 的手牌數字相同 (${maxCardValue})，共享勝利！`, "system");
+                }
+            }
+            
+            broadcast({
+                type: "GAME_STATE_UPDATE",
+                gameState: gameState
+            });
+            
+            // 顯示返回房間的按鈕
+            setTimeout(() => {
+                if (confirm("遊戲結束！是否返回房間？")) {
+                    leaveGame();
+                }
+            }, 2000);
+        }
+        
+        // 離開遊戲
+        function leaveGame() {
+            gameSection.style.display = "none";
+            roomSection.style.display = "block";
+            
+            // 重置遊戲狀態
+            if (isHost) {
+                gameState = {
+                    players: gameState.players.map(p => ({
+                        ...p,
+                        hand: [],
+                        isProtected: false,
+                        isEliminated: false
+                    })),
+                    deck: [],
+                    discardPile: [],
+                    currentPlayerIndex: -1,
+                    phase: "waiting",
+                    selectedCard: null,
+                    lastPlayedCard: null,
+                    protectedPlayers: [],
+                    eliminatedPlayers: [],
+                    removedCard: null
+                };
+                
+                broadcast({
+                    type: "GAME_STATE_UPDATE",
+                    gameState: gameState
+                });
+                
+                updatePlayersDisplay();
+            }
+        }
+        
+        // 離開房間
+        function leaveRoom() {
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+            
+            conn = null;
+            hostConnections = [];
+            isHost = false;
+            
+            document.getElementById("joinRoom").disabled = false;
+            document.getElementById("leaveRoom").disabled = true;
+            document.getElementById("startGame").disabled = true;
+            document.getElementById("playerName").disabled = false;
+            document.getElementById("roomId").disabled = false;
+            
+            // 重置玩家列表
+            playersContainer.innerHTML = `
+                <div class="text-center" style="grid-column: 1 / -1; padding: 20px; color: var(--light-gold);">
+                    等待玩家加入房間...
+                </div>
+            `;
+            
+            // 隱藏遊戲區域
+            gameSection.style.display = "none";
+            roomSection.style.display = "block";
+            
+            logMessage("已離開房間", "system");
+        }
+        
+        // 顯示提示卡/剩餘牌表
+        function showHint() {
+            document.getElementById("hintModal").style.display = "flex";
+        }
+        
+        // 隱藏提示卡
+        function hideHint() {
+            document.getElementById("hintModal").style.display = "none";
+        }
+        
+        // 更新提示表
+        function updateHintTable() {
+            cardsTableBody.innerHTML = "";
+            
+            // 計算每種卡牌的剩餘數量
+            const cardCounts = {};
+            
+            // 初始化
+            for (const [id, card] of Object.entries(CARDS)) {
+                cardCounts[id] = {
+                    total: card.count,
+                    remaining: card.count
+                };
+            }
+            
+            // 減去牌庫中的牌
+            gameState.deck.forEach(card => {
+                if (cardCounts[card.id]) {
+                    cardCounts[card.id].remaining--;
+                }
+            });
+            
+            // 減去玩家手中的牌
+            gameState.players.forEach(player => {
+                player.hand.forEach(card => {
+                    if (cardCounts[card.id]) {
+                        cardCounts[card.id].remaining--;
+                    }
+                });
+            });
+            
+            // 減去棄牌堆中的牌
+            gameState.discardPile.forEach(discard => {
+                if (cardCounts[discard.card.id]) {
+                    cardCounts[discard.card.id].remaining--;
+                }
+            });
+            
+            // 減去移除的牌
+            if (gameState.removedCard && cardCounts[gameState.removedCard.id]) {
+                cardCounts[gameState.removedCard.id].remaining--;
+            }
+            
+            // 生成表格行
+            for (const [id, card] of Object.entries(CARDS)) {
+                const row = document.createElement("tr");
+                
+                const remaining = cardCounts[id] ? cardCounts[id].remaining : 0;
+                const remainingClass = remaining > 0 ? "" : "style='color: var(--red);'";
+                
+                row.innerHTML = `
+                    <td>${id}</td>
+                    <td>${card.name}</td>
+                    <td>${card.gender === "male" ? "♂ 男" : "♀ 女"}</td>
+                    <td>${card.count}</td>
+                    <td ${remainingClass}>${remaining}</td>
+                    <td>${card.effect}</td>
+                `;
+                
+                cardsTableBody.appendChild(row);
+            }
+        }
+        
+        // 查看棄牌堆
+        function viewDiscard() {
+            if (gameState.discardPile.length === 0) {
+                logMessage("棄牌堆是空的", "system");
+                return;
+            }
+            
+            let discardText = "棄牌堆: ";
+            gameState.discardPile.forEach((discard, index) => {
+                if (index > 0) discardText += ", ";
+                discardText += `${discard.card.name} (${discard.player})`;
+            });
+            
+            logMessage(discardText, "system");
+        }
+        
+        // 擲骰子小遊戲
+        function rollDice() {
+            const dice1 = Math.floor(Math.random() * 6) + 1;
+            const dice2 = Math.floor(Math.random() * 6) + 1;
+            const total = dice1 + dice2;
+            
+            document.getElementById("dice1").textContent = getDiceFace(dice1);
+            document.getElementById("dice2").textContent = getDiceFace(dice2);
+            
+            const resultText = `你擲出了 ${dice1} 和 ${dice2} (總和: ${total})`;
+            document.getElementById("diceResult").innerHTML = `<strong>${resultText}</strong>`;
+            
+            // 如果是主機，廣播結果
+            if (isHost) {
+                broadcast({
+                    type: "DICE_ROLL_RESULT",
+                    playerName: playerName,
+                    dice1: getDiceFace(dice1),
+                    dice2: getDiceFace(dice2),
+                    total: total
+                });
+            } else if (conn) {
+                conn.send({
+                    type: "DICE_ROLL_RESULT",
+                    playerName: playerName,
+                    dice1: getDiceFace(dice1),
+                    dice2: getDiceFace(dice2),
+                    total: total
+                });
+            }
+        }
+        
+        // 獲取骰子表情
+        function getDiceFace(number) {
+            const faces = ["?", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+            return faces[number] || "?";
+        }
+        
+        // 顯示進度條
+        function showProgress(message, duration) {
+            progressBar.textContent = message;
+            progressBar.style.width = "0%";
+            progressContainer.style.display = "block";
+            
+            setTimeout(() => {
+                progressBar.style.width = "100%";
+            }, 10);
+            
+            // 禁用按鈕
+            document.querySelectorAll("button").forEach(btn => {
+                if (!btn.id || !["leaveRoom", "closeHint"].includes(btn.id)) {
+                    btn.disabled = true;
+                }
+            });
+            
+            // 設置定時器隱藏進度條
+            setTimeout(hideProgress, duration);
+        }
+        
+        // 隱藏進度條
+        function hideProgress() {
+            progressContainer.style.display = "none";
+            
+            // 重新啟用按鈕
+            document.querySelectorAll("button").forEach(btn => {
+                if (!btn.id || !["leaveRoom", "closeHint"].includes(btn.id)) {
+                    btn.disabled = false;
+                }
+            });
+            
+            updateGameDisplay();
+        }
+        
+        // 記錄訊息
+        function logMessage(message, type = "system") {
+            const logEntry = document.createElement("div");
+            logEntry.className = `log-entry ${type}`;
+            
+            const icon = type === "system" ? "fas fa-info-circle" : 
+                        type === "player-action" ? "fas fa-user" : 
+                        type === "elimination" ? "fas fa-skull-crossbones" : "fas fa-comment";
+            
+            logEntry.innerHTML = `<i class="${icon}"></i> ${message}`;
+            
+            gameLog.appendChild(logEntry);
+            
+            // 自動滾動到底部
+            gameLog.scrollTop = gameLog.scrollHeight;
+        }
+        
+        // 清空日誌
+        function clearLog() {
+            gameLog.innerHTML = `<div class="log-entry system">
+                <i class="fas fa-info-circle"></i> 日誌已清空
+            </div>`;
+        }
+    </script>
+</body>
+</html>
